@@ -2,18 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-import asyncio
 from PIL import Image
 from typing import Dict
-import cv2
 import google.generativeai as genai
-import torch
-from transformers import pipeline
-from PIL import Image
-
-# Configure Streamlit server settings for camera access
-st.set_option('server.enableCORS', False)
-st.set_option('server.enableXsrfProtection', False)
 
 # -------------------------
 # GitaGeminiBot Definition
@@ -91,7 +82,7 @@ class GitaGeminiBot:
                 "application": ""
             }
 
-    async def get_response(self, emotion: str, question: str) -> Dict:
+    def get_response(self, emotion: str, question: str) -> Dict:
         try:
             prompt = f"""
             You are a spiritual guide rooted in the teachings of the Bhagavad Gita.
@@ -137,50 +128,6 @@ def initialize_session_state():
         st.session_state.bot = GitaGeminiBot(api_key)
 
 # -------------------------
-# Emotion Detection
-# -------------------------
-
-@st.cache_resource
-def load_emotion_model():
-    try:
-        return pipeline("image-classification", model="prithivMLmods/Facial-Emotion-Detection-SigLIP2")
-    except Exception as e:
-        st.error(f"Error loading emotion model: {e}")
-        return None
-
-def detect_emotion_from_camera():
-    try:
-        # Initialize the emotion detection model
-        pipe = load_emotion_model()
-        if pipe is None:
-            return "neutral"
-        
-        cap = cv2.VideoCapture(0)
-        ret, frame = cap.read()
-        cap.release()
-
-        if not ret:
-            st.warning("Could not access camera. Using 'neutral' as default emotion.")
-            return "neutral"
-
-        # Convert BGR to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(rgb_frame)
-
-        # Use pipeline to classify emotion
-        results = pipe(pil_image)
-
-        # Get top predicted emotion
-        if results and isinstance(results, list):
-            return results[0]["label"]
-
-        return "neutral"
-    except Exception as e:
-        st.error(f"Error detecting emotion: {e}")
-        return "neutral"
-
-
-# -------------------------
 # Main App
 # -------------------------
 
@@ -210,16 +157,11 @@ def main():
 
     with col1:
         st.title("🕉️ Gita Wisdom with Emotion")
-        st.markdown("We sense your emotion and guide you through the Gita's wisdom.")
+        st.markdown("Select your emotion and ask a question for guidance from the Gita.")
 
-        # Option to manually select emotion instead of detection
-        use_camera = st.checkbox("Use camera for emotion detection", value=True)
-        
-        if use_camera:
-            emotion_options = None
-        else:
-            emotion_options = ["neutral", "happy", "sad", "angry", "fear", "surprise", "disgust"]
-            selected_emotion = st.selectbox("Select your emotion:", emotion_options)
+        # Manual emotion selection
+        emotion_options = ["neutral", "happy", "sad", "angry", "fear", "surprise", "disgust"]
+        selected_emotion = st.selectbox("Select your emotion:", emotion_options)
 
         question = st.text_input("Ask your question:")
         
@@ -227,14 +169,10 @@ def main():
             if not question:
                 st.error("Please enter a question before proceeding.")
             else:
-                if use_camera:
-                    with st.spinner("Detecting your emotion..."):
-                        emotion = detect_emotion_from_camera()
-                else:
-                    emotion = selected_emotion
+                emotion = selected_emotion
 
                 with st.spinner(f"Reflecting based on your {emotion} emotion..."):
-                    response = asyncio.run(st.session_state.bot.get_response(emotion, question))
+                    response = st.session_state.bot.get_response(emotion, question)
                     st.session_state.messages.append({"role": "user", "content": f"{question} (Feeling: {emotion})"})
                     st.session_state.messages.append({"role": "assistant", **response})
                     st.rerun()
@@ -267,14 +205,6 @@ def main():
 
     st.markdown("---")
     st.markdown("🧘‍♂️ This tool combines your emotions and the Gita's guidance to offer spiritual clarity.")
-    
-    # Add troubleshooting information
-    with st.expander("Troubleshooting"):
-        st.markdown("""
-        - If camera detection doesn't work, you can manually select your emotion using the checkbox above
-        - Make sure to allow camera permissions in your browser if using camera detection
-        - If you're experiencing issues, try refreshing the page
-        """)
 
 if __name__ == "__main__":
     main()
