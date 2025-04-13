@@ -21,7 +21,7 @@ from PIL import Image
 
 class GitaGeminiBot:
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
+        genai.configure(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         self.verses_db = self.load_gita_database()
 
@@ -133,7 +133,7 @@ def initialize_session_state():
         st.session_state.messages = []
     if 'bot' not in st.session_state:
         # Try to get API key from Streamlit secrets or use environment variable as fallback
-        api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck"))
+        api_key = ("AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck"))
         st.session_state.bot = GitaGeminiBot(api_key)
 
 # -------------------------
