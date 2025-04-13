@@ -124,7 +124,7 @@ def initialize_session_state():
         st.session_state.messages = []
     if 'bot' not in st.session_state:
         # Try to get API key from Streamlit secrets or use environment variable as fallback
-        api_key = ("GEMINI_API_KEY", "AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck"))
+        api_key = ("GEMINI_API_KEY", "AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
         st.session_state.bot = GitaGeminiBot(api_key)
 
 # -------------------------
