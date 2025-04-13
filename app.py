@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_option('server.enableCORS', False)
+st.set_option('server.enableXsrfProtection', False)
 import pandas as pd
 import os
 import json
