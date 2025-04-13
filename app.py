@@ -1,19 +1,19 @@
 import streamlit as st
-st.set_option('server.enableCORS', False)
-st.set_option('server.enableXsrfProtection', False)
 import pandas as pd
 import os
 import json
 import asyncio
 from PIL import Image
 from typing import Dict
-from fer import FER
 import cv2
 import google.generativeai as genai
 import torch
 from transformers import pipeline
-import cv2
 from PIL import Image
+
+# Configure Streamlit server settings for camera access
+st.set_option('server.enableCORS', False)
+st.set_option('server.enableXsrfProtection', False)
 
 # -------------------------
 # GitaGeminiBot Definition
@@ -21,7 +21,7 @@ from PIL import Image
 
 class GitaGeminiBot:
     def __init__(self, api_key: str):
-        genai.configure(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
+        genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         self.verses_db = self.load_gita_database()
 
@@ -133,7 +133,7 @@ def initialize_session_state():
         st.session_state.messages = []
     if 'bot' not in st.session_state:
         # Try to get API key from Streamlit secrets or use environment variable as fallback
-        api_key = ("AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck"))
+        api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", "AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck"))
         st.session_state.bot = GitaGeminiBot(api_key)
 
 # -------------------------
@@ -142,12 +142,18 @@ def initialize_session_state():
 
 @st.cache_resource
 def load_emotion_model():
-    return pipeline("image-classification", model="prithivMLmods/Facial-Emotion-Detection-SigLIP2")
+    try:
+        return pipeline("image-classification", model="prithivMLmods/Facial-Emotion-Detection-SigLIP2")
+    except Exception as e:
+        st.error(f"Error loading emotion model: {e}")
+        return None
 
 def detect_emotion_from_camera():
     try:
         # Initialize the emotion detection model
         pipe = load_emotion_model()
+        if pipe is None:
+            return "neutral"
         
         cap = cv2.VideoCapture(0)
         ret, frame = cap.read()
@@ -186,15 +192,17 @@ def main():
     )
 
     image_path = "WhatsApp Image 2024-11-18 at 11.40.34_076eab8e.jpg"  
-    if os.path.exists(image_path):  # Check if file exists locally
-        image = Image.open(image_path)
-        max_width = 800
-        aspect_ratio = image.height / image.width
-        resized_image = image.resize((max_width, int(max_width * aspect_ratio)))
-        st.image(resized_image, caption="Bhagavad Gita - Eternal Wisdom")
-
-    else:
-        st.warning("Image file not found. The app will continue without the header image.")
+    try:
+        if os.path.exists(image_path):  # Check if file exists locally
+            image = Image.open(image_path)
+            max_width = 800
+            aspect_ratio = image.height / image.width
+            resized_image = image.resize((max_width, int(max_width * aspect_ratio)))
+            st.image(resized_image, caption="Bhagavad Gita - Eternal Wisdom")
+        else:
+            st.info("Header image not found. The app will continue without it.")
+    except Exception as e:
+        st.info(f"Could not load header image: {e}")
 
     initialize_session_state()
 
@@ -204,13 +212,26 @@ def main():
         st.title("🕉️ Gita Wisdom with Emotion")
         st.markdown("We sense your emotion and guide you through the Gita's wisdom.")
 
+        # Option to manually select emotion instead of detection
+        use_camera = st.checkbox("Use camera for emotion detection", value=True)
+        
+        if use_camera:
+            emotion_options = None
+        else:
+            emotion_options = ["neutral", "happy", "sad", "angry", "fear", "surprise", "disgust"]
+            selected_emotion = st.selectbox("Select your emotion:", emotion_options)
+
         question = st.text_input("Ask your question:")
-        if st.button("📸 Detect Emotion & Ask"):
+        
+        if st.button("Ask for Wisdom"):
             if not question:
                 st.error("Please enter a question before proceeding.")
             else:
-                with st.spinner("Detecting your emotion..."):
-                    emotion = detect_emotion_from_camera()
+                if use_camera:
+                    with st.spinner("Detecting your emotion..."):
+                        emotion = detect_emotion_from_camera()
+                else:
+                    emotion = selected_emotion
 
                 with st.spinner(f"Reflecting based on your {emotion} emotion..."):
                     response = asyncio.run(st.session_state.bot.get_response(emotion, question))
@@ -235,7 +256,7 @@ def main():
 
     with col2:
         st.sidebar.title("📜 Browse Gita Chapters")
-        if st.session_state.bot.verses_db:
+        if hasattr(st.session_state, 'bot') and hasattr(st.session_state.bot, 'verses_db') and st.session_state.bot.verses_db:
             chapters = list(st.session_state.bot.verses_db.keys())
             selected = st.sidebar.selectbox("Chapter", chapters, format_func=lambda c: f"{c}: {st.session_state.bot.verses_db[c]['title']}")
             for vnum, vdata in st.session_state.bot.verses_db[selected]["verses"].items():
@@ -246,7 +267,14 @@ def main():
 
     st.markdown("---")
     st.markdown("🧘‍♂️ This tool combines your emotions and the Gita's guidance to offer spiritual clarity.")
-    st.markdown("Camera access is required for emotion detection. Please allow camera permissions when prompted.")
+    
+    # Add troubleshooting information
+    with st.expander("Troubleshooting"):
+        st.markdown("""
+        - If camera detection doesn't work, you can manually select your emotion using the checkbox above
+        - Make sure to allow camera permissions in your browser if using camera detection
+        - If you're experiencing issues, try refreshing the page
+        """)
 
 if __name__ == "__main__":
     main()
